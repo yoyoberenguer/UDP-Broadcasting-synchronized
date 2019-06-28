@@ -10,6 +10,7 @@ Sound is received from port 58999
 Video is received ftom port 59000 
 
 machine with IP 192.168.1.110
+
 C:\>UDP_Receiver.exe -a 192.168.1.112 -p 59000
 
 [+]INFO - Control socket broadcasting to 192.168.1.112 58997 
@@ -18,11 +19,13 @@ C:\>UDP_Receiver.exe -a 192.168.1.112 -p 59000
 
 On the other machine (same, specify the address of the listener, here 192.168.1.110)
 Control event is listening on port 58997
-Video is listening on port 59000
-Sound is listening on port 58999
+Video is broadcasting on port 59000
+Sound is broadcasting on port 58999
 
 machine with ip 192.168.1.112
+
 C:\>UDP_Broadcast.exe -a 192.168.1.110 -p 59000
+
 [+]INFO - Control socket listening to 192.168.1.112 58997 
 [+]INFO - Video socket broadcasting to 192.168.1.110 59000 
 [+]INFO - Sound socket broadcasting to 192.168.1.110 58999 
