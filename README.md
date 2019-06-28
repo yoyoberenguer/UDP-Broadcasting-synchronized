@@ -3,9 +3,12 @@ Video/sound broadcasting with UDP socket and datagram synchronized
 
 This project show how to send UDP datagrams throughout the network as long as your firewall or the distant firewall
 does not block the traffic. 
-
-Start the receiver first (option -a represent the machine sending the packets, -p the port to listen to) 
 ```
+Start the receiver first (option -a represent the machine sending the packets, -p the port to listen to) 
+The 'control socket' is connecting to the remote host (sending synchronization events, port 58997)
+Sound is received from port 58999 
+Video is received ftom port 59000 
+
 machine with IP 192.168.1.110
 C:\>UDP_Receiver.exe -a 192.168.1.112 -p 59000
 
@@ -14,6 +17,9 @@ C:\>UDP_Receiver.exe -a 192.168.1.112 -p 59000
 [+]INFO - Video socket listening to 192.168.1.110 59000 
 ```
 On the other machine (same, specify the address of the listener, here 192.168.1.110)
+Control event is listening on port 58997
+Video is listening on port 59000
+Sound is listening on port 58999
 ```
 machine with ip 192.168.1.112
 C:\>UDP_Broadcast.exe -a 192.168.1.110 -p 59000
