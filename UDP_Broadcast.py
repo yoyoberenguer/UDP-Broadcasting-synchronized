@@ -91,9 +91,9 @@ class GL:
     """
     Class holding all the global variables
     """
-    DISTANT = '192.168.1.112'                    # distant host
-    LOCAL = str(get_ip_address())               # local host
-    PORT = 59000                                # default port
+    DISTANT = None                              # distant host
+    LOCAL = None                                # local host
+    PORT = 59000                                # default PORT
     SCREEN = (300, 300)                         # screen sizes width and height
     BUFFER = 1024                               # Video data chunk byte size
     SIZE = int((SCREEN[0]) * (SCREEN[1]) * 3)   # Frame size
@@ -152,9 +152,9 @@ def wave_xy(texture_, rad1_, amplitude_) -> pygame.Surface:
 def sound_socket_emitter(host_, port_, data_) -> None:
     """
     Open a TCP socket and send a pygame sound object (byte string format) compress wit lz4 algorithm
-    default 127.0.0.1 port 58999
+    default 127.0.0.1 PORT 58999
     :param host_:  host address (string)
-    :param port_:  port value (integer)
+    :param port_:  PORT value (integer)
     :param data_:  byte string copy of the Sound samples.
     :return: None
     """
@@ -208,7 +208,7 @@ class MasterSync(threading.Thread):
                 GL.FRAME += 1
                 time.sleep(self.dt)
                 GL.TIMER = time.time()
-                if verbose:
+                if VERBOSE:
                     print('\n[+]INFO - MasterSync timer : %f frame %s ' % (GL.TIMER, GL.FRAME))
                 # Send notification to receiver and video frame
                 # generator to start UDP packets transfer
@@ -282,7 +282,7 @@ def video_output_generator(host_, port_):
         try:
             with GL.condition:
                 GL.condition.wait()
-            if verbose:
+            if VERBOSE:
                 print('\n[+]INFO - Generator starting condition delay %s msecs timestamp %s frame %s' %
                       (round(time.time() - GL.TIMER, 2) * 1000, time.time(), frame))
 
@@ -412,7 +412,7 @@ def video_output_generator(host_, port_):
 
         finally:
             GL.gen_stop.clear()
-            if verbose:
+            if VERBOSE:
                 print('\n[+]SERVER FINISHED delay %s msecs timestamp %s frame %s'
                       % (round(time.time() - GL.TIMER, 2) * 1000, time.time(), frame))
             frame += 1
@@ -440,19 +440,47 @@ if __name__ == '__main__':
     image_ = pygame.Surface((300, 300))
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("-a", "--address", required=False, default=GL.DISTANT, help="distant server")
-    ap.add_argument("-p", "--port", required=False, default=GL.PORT, help="Port to use")
-    ap.add_argument("-v", "--verbose", required=False, default=False, help="verbose")
-    args = vars(ap.parse_args())
+    ap.add_argument("-l", "--local", required=True, default=GL.LOCAL, help="local ip e.g '192.168.1.108'")
+    ap.add_argument("-d", "--distant", required=True, default=GL.DISTANT, help="distant ip e.g '192.168.1.100'")
+    ap.add_argument("-p", "--port", required=False, default=int(GL.PORT), help="port to use (choose a port > 1027")
+    ap.add_argument("-v", "--verbose", required=False, default=False, help="Verbose True | False")
 
-    host = args['address']
-    port = int(args['port'])
-    verbose = bool(args['verbose'])
+    args = vars(ap.parse_args())
+    LOCAL = args['local']
+    DISTANT = args['distant']
+    VERBOSE = args['verbose']
+    PORT = args['port']
+
+    if isinstance(DISTANT, str):
+        GL.DISTANT = DISTANT
+    else:
+        raise AssertionError('-d, --distant. Expecting string, got %s ' % type(DISTANT))
+
+    if isinstance(LOCAL, str):
+        GL.LOCAL = LOCAL
+    else:
+        raise AssertionError('-l, --local. Expecting string got %s ' % type(LOCAL))
+
+    if isinstance(VERBOSE, bool):
+        GL.VERBOSE = VERBOSE
+    else:
+        raise AssertionError('-v, --verbose. Expecting boolean True | False, got %s ' % type(VERBOSE))
+
+    try:
+        GL.PORT = int(PORT)
+    except ValueError:
+        raise AssertionError('-p, --port. Expecting integer got %s ' % type(PORT))
+
+    assert 1027 < GL.PORT < 65535, \
+        'Incorrect value for port, 1027 < port < 65535, got %s ' % GL.PORT
 
     STOP_GAME = False
     clock = pygame.time.Clock()
 
+    # Start the synchronisation
+    # listen on the distant IP
     ControlReceiver().start()
 
-    video_output_generator(host, port)
+    # Start video broadcasting on distant IP
+    video_output_generator(GL.DISTANT, GL.PORT)
 
