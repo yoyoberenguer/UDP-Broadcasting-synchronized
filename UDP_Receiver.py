@@ -17,9 +17,10 @@ def get_ip_address():
 
 class GLL:
    SCREEN = (300, 300)
-   LOCAL = str(get_ip_address())
-   DISTANT = '192.168.1.106'
-   port = 59000
+   LOCAL = '127.0.0.1'
+   DISTANT = None
+   VERBOSE = False
+   PORT = 59000
    SIZE = int((SCREEN[0]) * (SCREEN[1]) * 3)
    STOP = threading.Event()
    condition = threading.Condition()
@@ -61,7 +62,7 @@ class Control(threading.Thread):
         try:
             self.ss = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # self.ss.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            print('\n[+]INFO - Control socket broadcasting to %s %s ' % (GLL.DISTANT, GLL.port - 3))
+            print('\n[+]INFO - Control socket broadcasting to %s %s ' % (GLL.DISTANT, GLL.PORT - 3))
         except socket.error as e:
             print('\n[-]ERROR - Control socket not connected.. : %s ' % e)
             GLL.STOP.set()
@@ -73,7 +74,7 @@ class Control(threading.Thread):
                 while not GLL.event_trigger.isSet():
                     my_timer()
                 else:
-                    self.ss.sendto(cpickle.dumps(GLL.inner), (GLL.DISTANT, GLL.port - 3))
+                    self.ss.sendto(cpickle.dumps(GLL.inner), (GLL.DISTANT, GLL.PORT - 3))
 
             except Exception as e:
                 print('\n[-] Error - Control %s ' % e)
@@ -85,7 +86,7 @@ class Control(threading.Thread):
 class VideoInputReceiver(threading.Thread):
     """
     Class receiving all the data frames (video UDP packets send by the video generator).
-    Default address is 127.0.0.1 and port 59000
+    Default address is 127.0.0.1 and PORT 59000
     The data flows is synchronize with threading condition and events that allows a perfect synchronization
     between receiver and transmitter (depend on system resources).
     Threading condition is controlling the start of each transfer sessions and events between threads are signaling
@@ -148,8 +149,8 @@ class VideoInputReceiver(threading.Thread):
             GLL.STOP.set()
 
         try:
-            sock.bind((GLL.LOCAL, GLL.port))
-            print('\n[+]INFO - Video socket listening to %s %s ' % (GLL.LOCAL, GLL.port))
+            sock.bind((GLL.LOCAL, GLL.PORT))
+            print('\n[+]INFO - Video socket listening to %s %s ' % (GLL.LOCAL, GLL.PORT))
         except socket.error as error:
             print('\n[-]Error - Receiver : %s ' % error)
             GLL.STOP.set()
@@ -184,7 +185,7 @@ class VideoInputReceiver(threading.Thread):
                     # if packets number is not equal to the packet number then
                     # the transfer is not synchronized, or a packet has been dropped
                     if packets != data[0]:
-                        if verbose:
+                        if VERBOSE:
                             print('\n[-]ERROR - Receiver : packet not synchronised, packet %s %s.'
                                   % (packets, data[0]))
                         GLL.inner.set()
@@ -196,7 +197,7 @@ class VideoInputReceiver(threading.Thread):
                     chk = checksum.hexdigest()
 
                     if chk != data[3]:
-                        if verbose:
+                        if VERBOSE:
                             print('\n[-]ERROR - Receiver : checksum error. ')
                         GLL.inner.set()
                         GLL.event_trigger.set()
@@ -225,7 +226,7 @@ class VideoInputReceiver(threading.Thread):
                         image_ = pygame.image.frombuffer(buffer_, (width, height), 'RGB')
 
                     else:
-                        if verbose:
+                        if VERBOSE:
                             print('\n[-]ERROR - Receiver : Video buffer is corrupted.')
 
             except Exception as e:
@@ -241,7 +242,7 @@ class SoundSocketReceiver(threading.Thread):
     """
     Class receiving a pygame sound object through a TCP socket.
     The sound object is fragmented and compressed with the lz4 library by the sound generator.
-    Default address is 127.0.0.1 and port 58999
+    Default address is 127.0.0.1 and PORT 58999
 
     Data flow :
         * loop until STOP signal
@@ -254,7 +255,7 @@ class SoundSocketReceiver(threading.Thread):
 
     def __init__(self,
                  host_,  # host address
-                 port_,  # port value
+                 port_,  # PORT value
                  ):
 
         threading.Thread.__init__(self)
@@ -262,7 +263,7 @@ class SoundSocketReceiver(threading.Thread):
         """
         Create a TCP socket server to received sound data frames
         :param host_: String corresponding to the server address
-        :param port_: Integer used for the port.
+        :param port_: Integer used for the PORT.
                       Port to listen on (non-privileged ports are > 1023) and 0 < port_ < 65535
         """
 
@@ -276,7 +277,7 @@ class SoundSocketReceiver(threading.Thread):
         # Create a TCP/IP socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            # Bind the socket to the port
+            # Bind the socket to the PORT
             self.sock.bind((host_, port_))
         except socket.error as error:
             print('\n[-] Error : %s ' % error)
@@ -339,20 +340,54 @@ if __name__ == '__main__':
     pygame.init()
     image_ = pygame.Surface((300, 300))
     ap = argparse.ArgumentParser()
-    ap.add_argument("-a", "--address", required=False, default=GLL.DISTANT, help="distant server")
-    ap.add_argument("-p", "--port", required=False, default=GLL.port, help="Port to use")
-    ap.add_argument("-v", "--verbose", required=False, default=False, help="verbose")
+    ap.add_argument("-l", "--local", required=True, default=GLL.LOCAL, help="local ip e.g '192.168.1.108'")
+    ap.add_argument("-d", "--distant", required=True, default=GLL.DISTANT, help="distant ip e.g '192.168.1.100'")
+    ap.add_argument("-p", "--port", required=False, default=GLL.PORT, help="port to use (choose a port > 1027")
+    ap.add_argument("-v", "--verbose", required=False, default=False, help="Verbose True | False")
 
     args = vars(ap.parse_args())
-    DISTANT = args['address']
-    verbose = bool(args['verbose'])
+    LOCAL = args['local']
+    DISTANT = args['distant']
+    VERBOSE = args['verbose']
+    PORT = args['port']
 
+    if isinstance(DISTANT, str):
+        GLL.DISTANT = DISTANT
+    else:
+        raise AssertionError('-d, --distant. Expecting string, got %s ' % type(DISTANT))
+
+    if isinstance(LOCAL, str):
+        GLL.LOCAL = LOCAL
+    else:
+        raise AssertionError('-l, --local. Expecting string got %s ' % type(LOCAL))
+
+    if isinstance(VERBOSE, bool):
+        GLL.VERBOSE = VERBOSE
+    else:
+        raise AssertionError('-v, --verbose. Expecting boolean True | False, got %s ' % type(VERBOSE))
+
+    try:
+        GLL.PORT = int(PORT)
+    except ValueError:
+        raise AssertionError('-p, --port. Expecting integer got %s ' % type(PORT))
+
+    assert 1027 < GLL.PORT < 65535, \
+        'Incorrect value for port, 1027 < port < 65535, got %s ' % GLL.PORT
+
+    # Start the Synchronisation
+    # Listen on the distant IP
     Control().start()
 
     STOP_GAME = False
     clock = pygame.time.Clock()
+
+    # Start the video datagram listener
+    # Listen on the local IP
     VideoInputReceiver().start()
-    SoundSocketReceiver(GLL.LOCAL, int(args['port']) - 1).start()
+
+    # Start the sound listener
+    # Listen on the local IP
+    SoundSocketReceiver(GLL.LOCAL, GLL.PORT - 1).start()
 
     while not GLL.STOP.isSet():
         keys = pygame.key.get_pressed()
